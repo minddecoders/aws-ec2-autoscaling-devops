@@ -1,0 +1,13 @@
+
+{
+  "name": "aws-ec2-autoscaling-devops-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js application for AWS EC2 Auto Scaling DevOps project",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

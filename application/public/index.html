@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Cloud infrastructure and application health dashboard">
+  <title>CloudOps | Infrastructure Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-icon">C</span>
+        <span>CloudOps</span>
+      </div>
+
+      <p class="nav-heading">WORKSPACE</p>
+      <a class="nav-link active" href="/">▦ &nbsp; Dashboard</a>
+      
+      <div class="sidebar-note">
+        <span class="status-dot"></span>
+        AWS Infrastructure
+      </div>
+      
+      <div class="sidebar-footer">DevOps Learning Project</div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CLOUD INFRASTRUCTURE</p>
+          <h1>Dashboard</h1>
+          <p class="subtitle">Monitor your application and deployment status.</p>
+        </div>
+        <button id="refresh-button" class="refresh-button">
+          ↻ Refresh
+        </button>
+      </header>
+
+      <section class="welcome-card">
+        <div>
+          <p class="eyebrow light">APPLICATION OVERVIEW</p>
+          <h2>Your infrastructure, at a glance.</h2>
+          <p>Monitor application health and runtime information.</p>
+        </div>
+        <div class="cloud-symbol" aria-hidden="true">☁</div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2>Service status</h2>
+            <p class="subtitle">Live information from your backend API</p>
+          </div>
+          <span id="last-updated" class="updated">Not updated yet</span>
+        </div>
+
+        <div class="cards">
+          <article class="metric-card">
+            <div class="metric-top">
+              <span class="metric-label">Application health</span>
+              <span class="metric-icon">♥</span>
+            </div>
+            <p id="health-value" class="metric-value">Checking...</p>
+            <p id="health-detail" class="metric-detail">Connecting to backend</p>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span class="metric-label">Application version</span>
+              <span class="metric-icon">⌘</span>
+            </div>
+            <p id="version-value" class="metric-value">—</p>
+            <p class="metric-detail">Running release</p>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span class="metric-label">Server hostname</span>
+              <span class="metric-icon">▤</span>
+            </div>
+            <p id="hostname-value" class="metric-value hostname">—</p>
+            <p class="metric-detail">Serving this request</p>
+          </article>
+
+          <article class="metric-card">
+            <div class="metric-top">
+              <span class="metric-label">Process uptime</span>
+              <span class="metric-icon">◷</span>
+            </div>
+            <p id="uptime-value" class="metric-value">—</p>
+            <p class="metric-detail">Time since app started</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="details-card">
+        <div>
+          <h2>Runtime details</h2>
+          <p class="subtitle">Technical information from Node.js</p>
+        </div>
+        <div class="detail-row">
+          <span>Runtime</span>
+          <strong id="runtime-value">—</strong>
+        </div>
+        <div class="detail-row">
+          <span>Operating platform</span>
+          <strong id="platform-value">—</strong>
+        </div>
+        <div class="detail-row">
+          <span>API endpoint</span>
+          <code>/api/info</code>
+        </div>
+        <p id="error-message" class="error-message" role="status"></p>
+      </section>
+
+      <footer class="footer">
+        CloudOps Dashboard · Built with Node.js, Docker and AWS
+      </footer>
+    </main>
+  </div>
+</body>
+</html>

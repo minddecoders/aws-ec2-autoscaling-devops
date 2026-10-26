@@ -1,0 +1,79 @@
+
+name: Destroy Development Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type destroy to confirm infrastructure deletion"
+        required: true
+        type: string
+      delete_state_bucket:
+        description: "Also delete the Terraform state bucket (normally keep it)"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-1
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  destroy:
+    name: Destroy development resources
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+
+    steps:
+      - name: Confirm destruction
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          DELETE_STATE_BUCKET: ${{ inputs.delete_state_bucket }}
+        run: |
+          if [[ "$CONFIRMATION" != "destroy" ]]; then
+            echo "Confirmation failed. Enter destroy to continue."
+            exit 1
+          fi
+
+          if [[ "$DELETE_STATE_BUCKET" == "true" ]]; then
+            echo "Refusing to delete the state bucket from this workflow."
+            echo "Preserve Terraform state and delete the bucket separately only after careful review."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Destroy Plan
+        run: terraform plan -destroy -input=false -out=destroy.tfplan
+
+      - name: Destroy Infrastructure
+        run: terraform apply -input=false -auto-approve destroy.tfplan

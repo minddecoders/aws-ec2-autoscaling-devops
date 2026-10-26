@@ -1,0 +1,91 @@
+
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_compute:
+        description: "Deploy EC2 Auto Scaling and the application"
+        required: true
+        type: boolean
+        default: false
+      image_tag:
+        description: "ECR image commit SHA (required if compute is enabled)"
+        required: false
+        type: string
+        default: ""
+      confirm_apply:
+        description: "Type apply to confirm deployment"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-1
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  apply:
+    name: Apply development infrastructure
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: terraform/environments/dev
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Confirm deployment inputs
+        env:
+          CONFIRM_APPLY: ${{ inputs.confirm_apply }}
+          ENABLE_COMPUTE: ${{ inputs.enable_compute }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [[ "$CONFIRM_APPLY" != "apply" ]]; then
+            echo "Confirmation failed. Enter apply to continue."
+            exit 1
+          fi
+
+          if [[ "$ENABLE_COMPUTE" == "true" && -z "$IMAGE_TAG" ]]; then
+            echo "An image tag is required when compute is enabled."
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+
+      - name: Terraform Init
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        env:
+          ENABLE_COMPUTE: ${{ inputs.enable_compute }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          terraform plan -input=false \
+            -var="enable_compute=$ENABLE_COMPUTE" \
+            -var="image_tag=$IMAGE_TAG" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -input=false -auto-approve tfplan

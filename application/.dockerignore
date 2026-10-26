@@ -1,0 +1,11 @@
+
+.git
+.github
+.env
+.env.*
+node_modules
+npm-debug.log
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+terraform.tfvars.json
