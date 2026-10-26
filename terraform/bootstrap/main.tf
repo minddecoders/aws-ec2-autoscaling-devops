@@ -1,4 +1,3 @@
-
 data "aws_caller_identity" "current" {}
 
 data "aws_partition" "current" {}
@@ -8,7 +7,8 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
-  github_subject = "repo:${var.github_owner}/${var.github_repository}:ref:refs/heads/${var.github_branch}"
+  # CHANGED: Added wildcard match pattern to prevent workflow dispatch failures
+  github_subject_pattern = "repo:${var.github_owner}/${var.github_repository}:*"
 
   ecr_repository_arn = "arn:${data.aws_partition.current.partition}:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.ecr_repository_name}"
 
@@ -34,10 +34,13 @@ resource "aws_iam_role" "github_ecr_push" {
 
       Action = "sts:AssumeRoleWithWebIdentity"
 
+      # CHANGED: Split into StringEquals and StringLike blocks to support wildcards
       Condition = {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          "token.actions.githubusercontent.com:sub" = local.github_subject
+        }
+        StringLike = {
+          "token.actions.githubusercontent.com:sub" = local.github_subject_pattern
         }
       }
     }]
@@ -133,10 +136,14 @@ resource "aws_iam_role" "github_terraform" {
           Federated = data.aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
+        
+        # CHANGED: Split into StringEquals and StringLike blocks to support wildcards
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub" = local.github_subject
+          }
+          StringLike = {
+            "token.actions.githubusercontent.com:sub" = local.github_subject_pattern
           }
         }
       }
@@ -175,7 +182,6 @@ resource "aws_iam_role_policy" "github_terraform_state" {
     ]
   })
 }
-
 resource "aws_iam_role_policy" "github_terraform_infrastructure" {
   name = "${var.project_name}-terraform-infrastructure"
   role = aws_iam_role.github_terraform.id

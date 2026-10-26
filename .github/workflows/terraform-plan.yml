@@ -1,5 +1,4 @@
-
-name: Terraform Plan
+name: "Terraform Plan"
 
 on:
   workflow_dispatch:
@@ -63,14 +62,13 @@ jobs:
           IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           if [[ "$ENABLE_COMPUTE" == "true" && -z "$IMAGE_TAG" ]]; then
-            echo "An image tag is required when compute is enabled."
+            echo "Error: An image tag is required when compute is enabled."
             exit 1
           fi
 
-      
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive ../..
-
+        # Fixed path traversal to safely check the entire project root
+        run: terraform fmt -check -recursive ../../../
 
       - name: Terraform Init
         run: terraform init -input=false
