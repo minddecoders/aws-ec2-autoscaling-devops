@@ -7,7 +7,7 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
-  github_subject_pattern = "repo:${var.github_owner}*/${var.github_repository}*:*"
+  github_subject_pattern = "repo:${var.github_owner}@200070681/${var.github_repository}@1433179148:*"
 
   ecr_repository_arn = "arn:${data.aws_partition.current.partition}:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.ecr_repository_name}"
 
