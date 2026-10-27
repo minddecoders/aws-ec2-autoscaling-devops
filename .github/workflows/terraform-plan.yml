@@ -44,6 +44,20 @@ jobs:
           echo "Repository: $GITHUB_REPOSITORY"
           echo "Ref: $GITHUB_REF"
           echo "Event: $GITHUB_EVENT_NAME"
+        
+      - name: Debug GitHub OIDC Claims
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com');
+            const payload = token.split('.')[1];
+            const claims = JSON.parse(
+              Buffer.from(payload, 'base64url').toString('utf8')
+            );
+
+            for (const key of ['iss', 'aud', 'sub', 'repository', 'ref']) {
+              core.info(`${key}: ${JSON.stringify(claims[key])}`);
+            }  
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
