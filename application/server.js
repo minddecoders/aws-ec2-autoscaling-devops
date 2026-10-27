@@ -6,6 +6,7 @@ const os = require("node:os");
 
 const PORT = Number(process.env.PORT) || 3000;
 const APP_VERSION = "1.0.0";
+const GIT_COMMIT_SHA = process.env.GIT_COMMIT_SHA || "unknown";
 const PUBLIC_DIR = path.join(__dirname, "public");
 const startedAt = Date.now();
 
@@ -88,6 +89,7 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, {
       name: "CloudOps Infrastructure Dashboard",
       version: APP_VERSION,
+      commitSha: GIT_COMMIT_SHA,
       hostname: os.hostname(),
       platform: process.platform,
       nodeVersion: process.version,

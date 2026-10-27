@@ -41,13 +41,17 @@ jobs:
 
       - name: Set image tag
         id: image
-        run: echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Image tag: ${GITHUB_SHA}"
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: ./application
           push: true
+          build-args: |
+            GIT_COMMIT_SHA=${{ github.sha }}
           tags: ${{ steps.ecr-login.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ steps.image.outputs.tag }}
 
   
