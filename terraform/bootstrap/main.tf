@@ -308,6 +308,7 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
         Action = [
           "iam:CreateRole",
           "iam:DeleteRole",
+          "iam:TagInstanceProfile",
           "iam:ListAttachedRolePolicies",
           "iam:ListRolePolicies",
           "iam:GetRole",
