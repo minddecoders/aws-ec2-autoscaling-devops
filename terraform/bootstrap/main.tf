@@ -290,6 +290,7 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
           "ecr:DescribeRepositories",
           "ecr:CreateRepository",
           "ecr:ListTagsForResource",
+          "ecr:BatchGetImage",
           "ecr:DeleteRepository",
           "ecr:PutLifecyclePolicy",
           "ecr:GetLifecyclePolicy",
