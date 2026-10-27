@@ -65,6 +65,27 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
+# Allow the application to read Auto Scaling Group capacity
+resource "aws_iam_role_policy" "autoscaling_read" {
+  name = "${var.project_name}-autoscaling-read"
+  role = aws_iam_role.ec2.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [{
+      Effect = "Allow"
+
+      Action = [
+        "autoscaling:DescribeAutoScalingGroups"
+      ]
+
+      Resource = "*"
+    }]
+  })
+}
+
+
 # Attach the role to EC2 instances
 resource "aws_iam_instance_profile" "ec2" {
   name = "${var.project_name}-ec2-profile"
@@ -115,6 +136,8 @@ resource "aws_launch_template" "app" {
       --name app \
       --restart unless-stopped \
       -p ${var.app_port}:${var.app_port} \
+      -e AWS_REGION=${var.aws_region} \
+      -e AUTO_SCALING_GROUP_NAME=aws-ec2-autoscaling-devops-asg \
       ${var.container_image}
   EOF
   )
@@ -186,8 +209,11 @@ resource "aws_autoscaling_group" "app" {
     ignore_changes = [desired_capacity]
   }
 
+
   depends_on = [
     aws_iam_role_policy_attachment.ssm,
-    aws_iam_role_policy_attachment.ecr_read
+    aws_iam_role_policy_attachment.ecr_read,
+    aws_iam_role_policy.autoscaling_read
   ]
+
 }

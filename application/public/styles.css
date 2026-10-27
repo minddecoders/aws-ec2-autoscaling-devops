@@ -323,6 +323,13 @@ h2 {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.metric-value.commit-sha {
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
 .metric-detail {
   font-size: 13px;
   color: #94a3b8;
@@ -456,4 +463,23 @@ h2 {
   .updated {
     margin-top: 6px;
   }
+}
+
+/* Auto Scaling dashboard card */
+#asg-name-value {
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+#asg-status {
+  color: var(--text-secondary, #64748b);
+}
+
+.metric-card #asg-status {
+  margin-bottom: 12px;
+}
+
+.metric-card strong {
+  font-weight: 600;
 }

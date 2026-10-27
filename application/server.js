@@ -4,11 +4,24 @@ const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
 
+const {
+  AutoScalingClient,
+  DescribeAutoScalingGroupsCommand
+} = require("@aws-sdk/client-auto-scaling");
+
 const PORT = Number(process.env.PORT) || 3000;
 const APP_VERSION = "1.0.0";
 const GIT_COMMIT_SHA = process.env.GIT_COMMIT_SHA || "unknown";
+const AWS_REGION = process.env.AWS_REGION || "eu-west-1";
+const AUTO_SCALING_GROUP_NAME =
+  process.env.AUTO_SCALING_GROUP_NAME || "";
+
 const PUBLIC_DIR = path.join(__dirname, "public");
 const startedAt = Date.now();
+
+const autoScalingClient = new AutoScalingClient({
+  region: AWS_REGION
+});
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -54,7 +67,7 @@ function serveStaticFile(res, filePath) {
   });
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(
     req.url,
     `http://${req.headers.host || "localhost"}`
@@ -97,6 +110,53 @@ const server = http.createServer((req, res) => {
     });
   }
 
+  if (pathname === "/api/autoscaling") {
+    if (!AUTO_SCALING_GROUP_NAME) {
+      return sendJson(res, 503, {
+        error: "Auto Scaling Group is not configured."
+      });
+    }
+
+    try {
+      const result = await autoScalingClient.send(
+        new DescribeAutoScalingGroupsCommand({
+          AutoScalingGroupNames: [AUTO_SCALING_GROUP_NAME]
+        })
+      );
+
+      const group = result.AutoScalingGroups?.[0];
+
+      if (!group) {
+        return sendJson(res, 404, {
+          error: "Auto Scaling Group not found."
+        });
+      }
+
+      const instances = group.Instances || [];
+
+      return sendJson(res, 200, {
+        name: group.AutoScalingGroupName,
+        minSize: group.MinSize,
+        maxSize: group.MaxSize,
+        desiredCapacity: group.DesiredCapacity,
+        currentCapacity: instances.length,
+        inServiceInstances: instances.filter(
+          instance => instance.LifecycleState === "InService"
+        ).length,
+        status: "available"
+      });
+    } catch (error) {
+      console.error(
+        "Unable to read Auto Scaling capacity:",
+        error.name || error.message
+      );
+
+      return sendJson(res, 502, {
+        error: "Unable to retrieve Auto Scaling capacity."
+      });
+    }
+  }
+
   const publicFiles = {
     "/": "index.html",
     "/index.html": "index.html",
@@ -136,6 +196,7 @@ server.listen(PORT, "0.0.0.0", () => {
     message: "Application started",
     port: PORT,
     version: APP_VERSION,
+    region: AWS_REGION,
     timestamp: new Date().toISOString()
   }));
 });

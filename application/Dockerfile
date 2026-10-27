@@ -9,8 +9,13 @@ ENV GIT_COMMIT_SHA=${GIT_COMMIT_SHA}
 
 WORKDIR /app
 
-COPY --chown=node:node package.json server.js ./
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY --chown=node:node server.js ./
 COPY --chown=node:node public/ ./public/
+
+RUN chown -R node:node /app
 
 USER node
 

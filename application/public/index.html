@@ -18,12 +18,12 @@
 
       <p class="nav-heading">WORKSPACE</p>
       <a class="nav-link active" href="/">▦ &nbsp; Dashboard</a>
-      
+
       <div class="sidebar-note">
         <span class="status-dot"></span>
         AWS Infrastructure
       </div>
-      
+
       <div class="sidebar-footer">DevOps Learning Project</div>
     </aside>
 
@@ -67,14 +67,27 @@
             <p id="health-detail" class="metric-detail">Connecting to backend</p>
           </article>
 
-          <article class="metric-card">
-            <div class="metric-top">
-              <span class="metric-label">Application version</span>
-              <span class="metric-icon">⌘</span>
-            </div>
-            <p id="version-value" class="metric-value">—</p>
-            <p class="metric-detail">Running release</p>
-          </article>
+
+<!-- Application Version Card -->
+<article class="metric-card">
+  <div class="metric-top">
+    <span class="metric-label">Application version</span>
+    <span class="metric-icon">⌘</span>
+  </div>
+  <p id="version-value" class="metric-value">—</p>
+  <p class="metric-detail">Running release</p>
+</article>
+
+<!-- Deployed Git Commit Card -->
+<article class="metric-card">
+  <div class="metric-top">
+    <span class="metric-label">Deployed Git Commit</span>
+    <span class="metric-icon">⌘</span>
+  </div>
+  <p id="commit-sha-value" class="metric-value commit-sha">Loading...</p>
+  <p class="metric-detail">Deployed image revision</p>
+</article>
+
 
           <article class="metric-card">
             <div class="metric-top">
@@ -93,6 +106,20 @@
             <p id="uptime-value" class="metric-value">—</p>
             <p class="metric-detail">Time since app started</p>
           </article>
+
+<article class="metric-card">
+  <div class="metric-top">
+    <span class="metric-label">Auto Scaling Group</span>
+    <span class="metric-icon">↗</span>
+  </div>
+  <p id="asg-name-value" class="metric-value">Loading...</p>
+  <p id="asg-status" class="metric-detail">Connecting to AWS...</p>
+  <p class="metric-detail">Desired capacity: <strong id="asg-desired-value">—</strong></p>
+  <p class="metric-detail">Current instances: <strong id="asg-current-value">—</strong></p>
+  <p class="metric-detail">In service: <strong id="asg-inservice-value">—</strong></p>
+  <p class="metric-detail">Minimum / Maximum: <strong id="asg-range-value">—</strong></p>
+</article>
+
         </div>
       </section>
 

@@ -1,5 +1,5 @@
 
-name: Destroy Development Infrastructure
+name: Terraform Destroy
 
 on:
   workflow_dispatch:

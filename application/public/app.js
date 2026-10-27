@@ -53,6 +53,7 @@ async function loadDashboard() {
     );
 
     setText("#version-value", info.version);
+    setText("#commit-sha-value", info.commitSha);
     setText("#hostname-value", info.hostname);
     setText("#uptime-value", formatUptime(info.uptime));
     setText("#runtime-value", info.nodeVersion);
@@ -80,3 +81,35 @@ async function loadDashboard() {
 refreshButton.addEventListener("click", loadDashboard);
 
 loadDashboard();
+
+async function loadAutoScaling() {
+  const status = document.querySelector("#asg-status");
+
+  try {
+    const response = await fetch("/api/autoscaling", {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      throw new Error(`AWS API returned HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    document.querySelector("#asg-name-value").textContent = data.name;
+    document.querySelector("#asg-desired-value").textContent =
+      data.desiredCapacity;
+    document.querySelector("#asg-current-value").textContent =
+      data.currentCapacity;
+    document.querySelector("#asg-inservice-value").textContent =
+      data.inServiceInstances;
+    document.querySelector("#asg-range-value").textContent =
+      `${data.minSize} / ${data.maxSize}`;
+
+    status.textContent = "Connected to AWS";
+  } catch (error) {
+    status.textContent = "Auto Scaling data unavailable";
+    console.error("Auto Scaling dashboard error:", error);
+  }
+}
+loadAutoScaling();
