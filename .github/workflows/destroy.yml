@@ -34,15 +34,15 @@ jobs:
     steps:
       - name: Confirm destruction
         env:
-          CONFIRMATION: \${{ inputs.confirmation }}
-          DELETE_STATE_BUCKET: \${{ inputs.delete_state_bucket }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          DELETE_STATE_BUCKET: ${{ inputs.delete_state_bucket }}
         run: |
-          if [[ "\$CONFIRMATION" != "destroy" ]]; then
+          if [[ "$CONFIRMATION" != "destroy" ]]; then
             echo "Confirmation failed. Enter destroy to continue."
             exit 1
           fi
 
-          if [[ "\$DELETE_STATE_BUCKET" == "true" ]]; then
+          if [[ "$DELETE_STATE_BUCKET" == "true" ]]; then
             echo "State bucket deletion is not supported."
             exit 1
           fi
@@ -59,8 +59,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: \${{ vars.AWS_TERRAFORM_ROLE_ARN }}
-          aws-region: \${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -78,9 +78,42 @@ jobs:
       - name: Capture resources before destroy
         working-directory: terraform/environments/dev
         run: |
-          terraform state list > "\$RUNNER_TEMP/resources-before.txt"
+          terraform state list > "$RUNNER_TEMP/resources-before.txt"
           echo "Resources tracked before destroy:"
-          cat "\$RUNNER_TEMP/resources-before.txt"
+          cat "$RUNNER_TEMP/resources-before.txt"
+
+      # Delete ECR images so Terraform can delete a non-empty repository.
+      - name: Empty ECR repository
+        id: empty_ecr
+        continue-on-error: true
+        run: |
+          REPOSITORY="aws-ec2-autoscaling-devops-app"
+
+          if aws ecr describe-repositories \
+            --repository-names "$REPOSITORY" >/dev/null 2>&1; then
+
+            echo "Deleting images from ECR repository: $REPOSITORY"
+
+            while true; do
+              IMAGE_IDS=$(aws ecr list-images \
+                --repository-name "$REPOSITORY" \
+                --query 'imageIds' \
+                --output json)
+
+              if [[ "$IMAGE_IDS" == "[]" || -z "$IMAGE_IDS" ]]; then
+                echo "No ECR images remain."
+                break
+              fi
+
+              printf '%s' "$IMAGE_IDS" > "$RUNNER_TEMP/ecr-image-ids.json"
+
+              aws ecr batch-delete-image \
+                --repository-name "$REPOSITORY" \
+                --image-ids "file://$RUNNER_TEMP/ecr-image-ids.json"
+            done
+          else
+            echo "ECR repository does not exist or cannot be accessed."
+          fi
 
       - name: Terraform Destroy Plan
         working-directory: terraform/environments/dev
@@ -95,87 +128,90 @@ jobs:
         if: always()
         working-directory: terraform/environments/dev
         run: |
-          if terraform state list > "\(RUNNER_TEMP/resources-after.txt" 2>"\)RUNNER_TEMP/state-error.txt"; then
+          if terraform state list \
+            > "$RUNNER_TEMP/resources-after.txt" \
+            2> "$RUNNER_TEMP/state-error.txt"; then
             echo "State inspection completed."
           else
             echo "Unable to inspect Terraform state."
-            touch "\$RUNNER_TEMP/resources-after.txt"
+            touch "$RUNNER_TEMP/resources-after.txt"
           fi
 
       - name: Generate destruction report
         if: always()
         env:
-          DESTROY_OUTCOME: \${{ steps.destroy.outcome }}
+          DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
+          ECR_OUTCOME: ${{ steps.empty_ecr.outcome }}
         run: |
-          SUMMARY="\$GITHUB_STEP_SUMMARY"
+          SUMMARY="$GITHUB_STEP_SUMMARY"
 
           {
             echo "# Terraform Destroy Report"
             echo ""
-            echo "- **Region:** \$AWS_REGION"
-            echo "- **Destroy result:** \${DESTROY_OUTCOME:-not completed}"
+            echo "- **Region:** $AWS_REGION"
+            echo "- **Destroy result:** ${DESTROY_OUTCOME:-not completed}"
+            echo "- **ECR cleanup step:** ${ECR_OUTCOME:-not completed}"
             echo "- **Terraform state bucket:** Preserved"
             echo ""
             echo "## Resources removed from Terraform state"
             echo ""
-          } >> "\$SUMMARY"
+          } >> "$SUMMARY"
 
-          if [[ -f "\$RUNNER_TEMP/resources-before.txt" ]]; then
-            if [[ -f "\$RUNNER_TEMP/state-error.txt" ]] &&
-               [[ -s "\$RUNNER_TEMP/state-error.txt" ]]; then
-              echo "Could not verify Terraform state after destroy." >> "\$SUMMARY"
+          if [[ -f "$RUNNER_TEMP/resources-before.txt" ]]; then
+            if [[ -s "$RUNNER_TEMP/state-error.txt" ]]; then
+              echo "Could not verify Terraform state after destroy." >> "$SUMMARY"
             else
               comm -23 \
-                <(sort "\$RUNNER_TEMP/resources-before.txt") \
-                <(sort "\$RUNNER_TEMP/resources-after.txt") \
-                > "\$RUNNER_TEMP/resources-removed.txt"
+                <(sort "$RUNNER_TEMP/resources-before.txt") \
+                <(sort "$RUNNER_TEMP/resources-after.txt") \
+                > "$RUNNER_TEMP/resources-removed.txt"
 
-              if [[ -s "\$RUNNER_TEMP/resources-removed.txt" ]]; then
+              if [[ -s "$RUNNER_TEMP/resources-removed.txt" ]]; then
                 echo '```text' >> "$SUMMARY"
                 cat "$RUNNER_TEMP/resources-removed.txt" >> "$SUMMARY"
-                echo '```' >> "\$SUMMARY"
+                echo '```' >> "$SUMMARY"
               else
-                echo "No resource addresses were removed from state." >> "\$SUMMARY"
+                echo "No resource addresses were removed from state." >> "$SUMMARY"
               fi
 
-              echo "" >> "\$SUMMARY"
-              echo "## Resources remaining in Terraform state" >> "\$SUMMARY"
-              echo "" >> "\$SUMMARY"
+              echo "" >> "$SUMMARY"
+              echo "## Resources remaining in Terraform state"
+              echo ""
 
-              if [[ -s "\$RUNNER_TEMP/resources-after.txt" ]]; then
+              if [[ -s "$RUNNER_TEMP/resources-after.txt" ]]; then
                 echo '```text' >> "$SUMMARY"
                 cat "$RUNNER_TEMP/resources-after.txt" >> "$SUMMARY"
-                echo '```' >> "\$SUMMARY"
+                echo '```' >> "$SUMMARY"
               else
-                echo "No resources are listed in the state." >> "\$SUMMARY"
+                echo "No resources are listed in the state." >> "$SUMMARY"
               fi
             fi
           else
-            echo "The pre-destroy resource list is unavailable." >> "\$SUMMARY"
+            echo "Pre-destroy resource list unavailable." >> "$SUMMARY"
           fi
 
           {
             echo ""
             echo "## AWS resource checks"
             echo ""
-          } >> "\$SUMMARY"
+          } >> "$SUMMARY"
 
           check_aws() {
-            local label="\$1"
+            local label="$1"
             shift
             local result
 
-            if result=\(("\)@" 2>&1); then
-              if [[ -z "\(result" \vert{}\vert{} "\)result" == "None" ]]; then
-                echo "- **\$label:** No matching resource found." >> "\$SUMMARY"
+            if result=$("$@" 2>&1); then
+              if [[ -z "$result" || "$result" == "None" ]]; then
+                echo "- **$label:** No matching resource found." >> "$SUMMARY"
               else
-                echo "- **\$label:** Resource found or data returned:" >> "\$SUMMARY"
-                echo '```text' >> "\$SUMMARY"
-                echo "\(result" >> "\)SUMMARY"
+                echo "- **$label:** Resource found or data returned:" >> "$SUMMARY"
+                echo '```text' >> "$SUMMARY"
+                echo "$result" >> "$SUMMARY"
                 echo '```' >> "$SUMMARY"
               fi
             else
-              echo "- **$label:** Check failed; inspect the logs." >> "$SUMMARY"
+              echo "- **$label:** Check failed; inspect workflow logs." >> "$SUMMARY"
               echo "$result"
             fi
           }
@@ -192,6 +228,12 @@ jobs:
             --query 'repositories[].repositoryName' \
             --output text
 
+          check_aws "EC2 instances" \
+            aws ec2 describe-instances \
+            --filters "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+            --query "Reservations[].Instances[?contains(Tags[?Key=='Name'].Value | [0] || '', 'aws-ec2-autoscaling-devops')].InstanceId" \
+            --output text
+
           check_aws "Load balancers" \
             aws elbv2 describe-load-balancers \
             --query "LoadBalancers[?contains(LoadBalancerName, 'aws-ec2-autoscaling-devops')].LoadBalancerName" \
@@ -200,7 +242,12 @@ jobs:
           check_aws "NAT Gateways" \
             aws ec2 describe-nat-gateways \
             --filter "Name=state,Values=pending,available,failed" \
-            --query "NatGateways[?contains(NatGatewayId, 'nat-')].NatGatewayId" \
+            --query "NatGateways[].NatGatewayId" \
+            --output text
+
+          check_aws "Elastic IP addresses" \
+            aws ec2 describe-addresses \
+            --query "Addresses[].AllocationId" \
             --output text
 
           check_aws "Terraform state bucket" \
@@ -209,11 +256,11 @@ jobs:
 
           {
             echo ""
-            echo "## Review before declaring cleanup complete"
+            echo "## Important notes"
             echo ""
-            echo "- This report checks selected resources, not every AWS resource."
+            echo "- This report checks selected AWS resources, not every resource."
             echo "- Resources removed from Terraform state are not proof of physical deletion."
-            echo "- Check EC2 instances, Elastic IPs, NAT Gateways, load balancers, EBS volumes, and other potentially chargeable resources in AWS."
-            echo "- The ECR repository and images are deleted only if Terraform successfully manages and removes them."
+            echo "- Review EBS volumes, security groups, ENIs, target groups, and other resources in AWS."
+            echo "- ECR images are permanently deleted during ECR cleanup."
             echo "- The Terraform state bucket is intentionally preserved."
           } >> "$SUMMARY"
