@@ -70,6 +70,7 @@ resource "aws_iam_role_policy" "github_ecr_push" {
         Action = [
           "ecr:BatchCheckLayerAvailability",
           "ecr:InitiateLayerUpload",
+          "ecr:BatchGetImage",
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
           "ecr:PutImage"
