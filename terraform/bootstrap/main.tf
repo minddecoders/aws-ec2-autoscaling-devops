@@ -289,6 +289,7 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
         Action = [
           "ecr:DescribeRepositories",
           "ecr:CreateRepository",
+          "ecr:ListTagsForResource",
           "ecr:DeleteRepository",
           "ecr:PutLifecyclePolicy",
           "ecr:GetLifecyclePolicy",
