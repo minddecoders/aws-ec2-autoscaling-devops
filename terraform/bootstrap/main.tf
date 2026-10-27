@@ -7,7 +7,6 @@ data "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
-  # CHANGED: Added wildcard match pattern to prevent workflow dispatch failures
   github_subject_pattern = "repo:${var.github_owner}/${var.github_repository}:*"
 
   ecr_repository_arn = "arn:${data.aws_partition.current.partition}:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.ecr_repository_name}"
@@ -18,7 +17,6 @@ locals {
     ManagedBy   = "Terraform"
   }
 }
-
 resource "aws_iam_role" "github_ecr_push" {
   name                 = "${var.project_name}-github-ecr-push"
   max_session_duration = 3600
@@ -39,10 +37,12 @@ resource "aws_iam_role" "github_ecr_push" {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
         }
+
         StringLike = {
           "token.actions.githubusercontent.com:sub" = local.github_subject_pattern
         }
       }
+
     }]
   })
 
@@ -136,12 +136,13 @@ resource "aws_iam_role" "github_terraform" {
           Federated = data.aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
-        
+
         # CHANGED: Split into StringEquals and StringLike blocks to support wildcards
         Condition = {
           StringEquals = {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
+
           StringLike = {
             "token.actions.githubusercontent.com:sub" = local.github_subject_pattern
           }
