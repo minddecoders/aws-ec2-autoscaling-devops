@@ -54,6 +54,12 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
+        
+      - name: Verify repository files
+        run: |
+          pwd
+          ls -la
+          ls -la terraform/environments/dev  
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
