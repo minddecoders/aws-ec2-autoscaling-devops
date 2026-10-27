@@ -1,4 +1,3 @@
-
 name: Terraform Destroy
 
 on:
@@ -8,6 +7,7 @@ on:
         description: "Type destroy to confirm infrastructure deletion"
         required: true
         type: string
+
       delete_state_bucket:
         description: "Also delete the Terraform state bucket (normally keep it)"
         required: true
@@ -31,10 +31,6 @@ jobs:
     name: Destroy development resources
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: terraform/environments/dev
-
     steps:
       - name: Confirm destruction
         env:
@@ -47,19 +43,22 @@ jobs:
           fi
 
           if [[ "$DELETE_STATE_BUCKET" == "true" ]]; then
-            echo "Refusing to delete the state bucket from this workflow."
-            echo "Preserve Terraform state and delete the bucket separately only after careful review."
+            echo "Refusing to delete the Terraform state bucket."
+            echo "The state bucket must be preserved for this workflow."
             exit 1
           fi
 
+          echo "Destruction confirmed."
+
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Verify repository files
         run: |
+          echo "Repository root:"
           pwd
-          ls -la
-          ls -la terraform/environments/dev  
+          echo "Terraform environment files:"
+          ls -la terraform/environments/dev
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -73,13 +72,17 @@ jobs:
           terraform_version: "1.10.5"
 
       - name: Terraform Init
+        working-directory: terraform/environments/dev
         run: terraform init -input=false
 
       - name: Terraform Validate
+        working-directory: terraform/environments/dev
         run: terraform validate
 
       - name: Terraform Destroy Plan
+        working-directory: terraform/environments/dev
         run: terraform plan -destroy -input=false -out=destroy.tfplan
 
       - name: Destroy Infrastructure
+        working-directory: terraform/environments/dev
         run: terraform apply -input=false -auto-approve destroy.tfplan
