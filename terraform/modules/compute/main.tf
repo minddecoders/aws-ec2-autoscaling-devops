@@ -107,12 +107,13 @@ resource "aws_launch_template" "app" {
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2.name
   }
-
+  
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 1
+    http_put_response_hop_limit = 2
   }
+
 
   user_data = base64encode(<<-EOF
     #!/bin/bash
