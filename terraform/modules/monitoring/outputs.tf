@@ -13,3 +13,7 @@ output "http_5xx_alarm_name" {
   description = "CloudWatch alarm for ALB HTTP 5xx errors"
   value       = aws_cloudwatch_metric_alarm.http_5xx.alarm_name
 }
+output "dashboard_name" {
+  description = "Name of the CloudWatch dashboard"
+  value       = aws_cloudwatch_dashboard.main.dashboard_name
+}

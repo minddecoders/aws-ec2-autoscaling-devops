@@ -9,17 +9,33 @@ const {
   DescribeAutoScalingGroupsCommand
 } = require("@aws-sdk/client-auto-scaling");
 
+const {
+  CloudWatchClient,
+  GetMetricDataCommand,
+  DescribeAlarmsCommand
+} = require("@aws-sdk/client-cloudwatch");
+
+const {
+  ElasticLoadBalancingV2Client,
+  DescribeTargetGroupsCommand
+} = require("@aws-sdk/client-elastic-load-balancing-v2");
+
 const PORT = Number(process.env.PORT) || 3000;
 const APP_VERSION = "1.0.0";
 const GIT_COMMIT_SHA = process.env.GIT_COMMIT_SHA || "unknown";
 const AWS_REGION = process.env.AWS_REGION || "eu-west-1";
 const AUTO_SCALING_GROUP_NAME =
   process.env.AUTO_SCALING_GROUP_NAME || "";
+const TARGET_GROUP_ARN = process.env.TARGET_GROUP_ARN || "";
+const ALARM_PREFIX =
+  process.env.CLOUDWATCH_ALARM_PREFIX || "aws-ec2-autoscaling-devops";
 
 const PUBLIC_DIR = path.join(__dirname, "public");
 const startedAt = Date.now();
 
-const autoScalingClient = new AutoScalingClient({
+const autoScalingClient = new AutoScalingClient({ region: AWS_REGION });
+const cloudWatchClient = new CloudWatchClient({ region: AWS_REGION });
+const loadBalancerClient = new ElasticLoadBalancingV2Client({
   region: AWS_REGION
 });
 
@@ -45,17 +61,13 @@ function sendJson(res, statusCode, data) {
 function serveStaticFile(res, filePath) {
   fs.readFile(filePath, (error, content) => {
     if (error) {
-      if (!res.headersSent) {
-        sendJson(res, 500, {
-          error: "Unable to read the requested file."
-        });
-      }
-      return;
+      return sendJson(res, 500, {
+        error: "Unable to read the requested file."
+      });
     }
 
     const contentType =
-      MIME_TYPES[path.extname(filePath)] ||
-      "application/octet-stream";
+      MIME_TYPES[path.extname(filePath)] || "application/octet-stream";
 
     res.writeHead(200, {
       "Content-Type": contentType,
@@ -65,6 +77,47 @@ function serveStaticFile(res, filePath) {
 
     res.end(content);
   });
+}
+
+function metricQuery(id, namespace, metricName, dimensions, statistic) {
+  return {
+    Id: id,
+    MetricStat: {
+      Metric: {
+        Namespace: namespace,
+        MetricName: metricName,
+        Dimensions: dimensions
+      },
+      Period: 300,
+      Stat: statistic
+    },
+    ReturnData: true
+  };
+}
+
+function latestValue(result, id) {
+  const metric = result.MetricDataResults?.find(item => item.Id === id);
+
+  if (!metric || !metric.Values?.length) {
+    return null;
+  }
+
+  const points = metric.Timestamps.map((timestamp, index) => ({
+    timestamp: new Date(timestamp),
+    value: metric.Values[index]
+  })).sort((a, b) => b.timestamp - a.timestamp);
+
+  return points[0]?.value ?? null;
+}
+
+function totalValue(result, id) {
+  const metric = result.MetricDataResults?.find(item => item.Id === id);
+
+  if (!metric || !metric.Values?.length) {
+    return 0;
+  }
+
+  return metric.Values.reduce((total, value) => total + value, 0);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -85,10 +138,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.setHeader("Allow", "GET, HEAD");
-
-    return sendJson(res, 405, {
-      error: "Method not allowed."
-    });
+    return sendJson(res, 405, { error: "Method not allowed." });
   }
 
   if (pathname === "/health") {
@@ -146,13 +196,175 @@ const server = http.createServer(async (req, res) => {
         status: "available"
       });
     } catch (error) {
-      console.error(
-        "Unable to read Auto Scaling capacity:",
-        error.name || error.message
-      );
-
+      console.error("Auto Scaling lookup failed:", error.name || error.message);
       return sendJson(res, 502, {
         error: "Unable to retrieve Auto Scaling capacity."
+      });
+    }
+  }
+
+  if (pathname === "/api/cloudwatch") {
+    if (!AUTO_SCALING_GROUP_NAME || !TARGET_GROUP_ARN) {
+      return sendJson(res, 503, {
+        error: "Auto Scaling Group or target group ARN is not configured."
+      });
+    }
+
+    try {
+      const [groupResult, targetResult, alarmResult] = await Promise.all([
+        autoScalingClient.send(
+          new DescribeAutoScalingGroupsCommand({
+            AutoScalingGroupNames: [AUTO_SCALING_GROUP_NAME]
+          })
+        ),
+        loadBalancerClient.send(
+          new DescribeTargetGroupsCommand({
+            TargetGroupArns: [TARGET_GROUP_ARN]
+          })
+        ),
+        cloudWatchClient.send(
+          new DescribeAlarmsCommand({
+            AlarmNamePrefix: ALARM_PREFIX,
+            MaxRecords: 100
+          })
+        )
+      ]);
+
+      const group = groupResult.AutoScalingGroups?.[0];
+      const targetGroup = targetResult.TargetGroups?.[0];
+
+      if (!group) {
+        return sendJson(res, 404, {
+          error: "Auto Scaling Group not found."
+        });
+      }
+
+      if (!targetGroup) {
+        return sendJson(res, 404, {
+          error: "Target group not found."
+        });
+      }
+
+      const loadBalancerArn = targetGroup.LoadBalancerArns?.[0];
+
+      if (!loadBalancerArn) {
+        return sendJson(res, 503, {
+          error: "Target group is not associated with a load balancer."
+        });
+      }
+
+      // AWS/EC2 CPUUtilization uses InstanceId as its dimension.
+      const instances = (group.Instances || []).filter(
+        instance => instance.InstanceId
+      );
+
+      const queries = instances.map((instance, index) =>
+        metricQuery(
+          `cpu_${index}`,
+          "AWS/EC2",
+          "CPUUtilization",
+          [{ Name: "InstanceId", Value: instance.InstanceId }],
+          "Average"
+        )
+      );
+
+      const asgDimension = [{
+        Name: "AutoScalingGroupName",
+        Value: AUTO_SCALING_GROUP_NAME
+      }];
+
+      queries.push(
+        metricQuery("desired", "AWS/AutoScaling", "GroupDesiredCapacity",
+          asgDimension, "Average"),
+        metricQuery("inservice", "AWS/AutoScaling", "GroupInServiceInstances",
+          asgDimension, "Average"),
+        metricQuery("minimum", "AWS/AutoScaling", "GroupMinSize",
+          asgDimension, "Average"),
+        metricQuery("maximum", "AWS/AutoScaling", "GroupMaxSize",
+          asgDimension, "Average")
+      );
+
+      const lbSuffix = loadBalancerArn.split(":loadbalancer/")[1];
+      const tgSuffix = TARGET_GROUP_ARN.split(":targetgroup/")[1];
+
+      if (!lbSuffix || !tgSuffix) {
+        return sendJson(res, 500, {
+          error: "Unable to determine load balancer metric dimensions."
+        });
+      }
+
+      queries.push(
+        metricQuery("healthy", "AWS/ApplicationELB", "HealthyHostCount", [
+          { Name: "LoadBalancer", Value: lbSuffix },
+          { Name: "TargetGroup", Value: tgSuffix }
+        ], "Average"),
+        metricQuery("unhealthy", "AWS/ApplicationELB", "UnHealthyHostCount", [
+          { Name: "LoadBalancer", Value: lbSuffix },
+          { Name: "TargetGroup", Value: tgSuffix }
+        ], "Maximum"),
+        metricQuery("requests", "AWS/ApplicationELB", "RequestCount", [
+          { Name: "LoadBalancer", Value: lbSuffix }
+        ], "Sum"),
+        metricQuery("elb_5xx", "AWS/ApplicationELB", "HTTPCode_ELB_5XX_Count", [
+          { Name: "LoadBalancer", Value: lbSuffix }
+        ], "Sum")
+      );
+
+      const now = new Date();
+      const metricsResult = await cloudWatchClient.send(
+        new GetMetricDataCommand({
+          StartTime: new Date(now.getTime() - 60 * 60 * 1000),
+          EndTime: now,
+          MetricDataQueries: queries,
+          ScanBy: "TimestampDescending"
+        })
+      );
+
+      const cpuValues = instances
+        .map((instance, index) => latestValue(metricsResult, `cpu_${index}`))
+        .filter(value => value !== null);
+
+      const cpuAverage = cpuValues.length
+        ? cpuValues.reduce((sum, value) => sum + value, 0) / cpuValues.length
+        : null;
+
+      const alarms = (alarmResult.MetricAlarms || []).map(alarm => ({
+        name: alarm.AlarmName,
+        state: alarm.StateValue,
+        reason: alarm.StateReason || "",
+        updatedAt: alarm.StateUpdatedTimestamp || null
+      }));
+
+      return sendJson(res, 200, {
+        region: AWS_REGION,
+        timestamp: now.toISOString(),
+        period: "Last hour; metric points use 5-minute periods",
+        cpu: {
+          averagePercent: cpuAverage,
+          instancesReporting: cpuValues.length
+        },
+        autoScaling: {
+          groupName: group.AutoScalingGroupName,
+          desiredCapacity: latestValue(metricsResult, "desired"),
+          inServiceInstances: latestValue(metricsResult, "inservice"),
+          minSize: latestValue(metricsResult, "minimum"),
+          maxSize: latestValue(metricsResult, "maximum"),
+          currentCapacity: (group.Instances || []).length
+        },
+        loadBalancer: {
+          targetGroup: targetGroup.TargetGroupName,
+          healthyTargets: latestValue(metricsResult, "healthy"),
+          unhealthyTargets: latestValue(metricsResult, "unhealthy"),
+          requestsLastHour: totalValue(metricsResult, "requests"),
+          elb5xxErrorsLastHour: totalValue(metricsResult, "elb_5xx")
+        },
+        alarms
+      });
+    } catch (error) {
+      console.error("CloudWatch lookup failed:", error.name || error.message);
+
+      return sendJson(res, 502, {
+        error: "Unable to retrieve CloudWatch metrics. Check the EC2 role permissions and AWS configuration."
       });
     }
   }
@@ -167,17 +379,14 @@ const server = http.createServer(async (req, res) => {
   const fileName = publicFiles[pathname];
 
   if (!fileName) {
-    return sendJson(res, 404, {
-      error: "Route not found."
-    });
+    return sendJson(res, 404, { error: "Route not found." });
   }
 
   const filePath = path.join(PUBLIC_DIR, fileName);
 
   if (req.method === "HEAD") {
     const contentType =
-      MIME_TYPES[path.extname(filePath)] ||
-      "application/octet-stream";
+      MIME_TYPES[path.extname(filePath)] || "application/octet-stream";
 
     res.writeHead(200, {
       "Content-Type": contentType,
@@ -208,7 +417,7 @@ function shutdown(signal) {
     signal
   }));
 
-  server.close((error) => {
+  server.close(error => {
     if (error) {
       console.error("Server shutdown failed:", error);
       process.exitCode = 1;

@@ -77,8 +77,11 @@ resource "aws_iam_role_policy" "autoscaling_read" {
       Effect = "Allow"
 
       Action = [
-        "autoscaling:DescribeAutoScalingGroups"
-      ]
+  "autoscaling:DescribeAutoScalingGroups",
+  "cloudwatch:GetMetricData",
+  "cloudwatch:DescribeAlarms",
+  "elasticloadbalancing:DescribeTargetGroups"
+]
 
       Resource = "*"
     }]
@@ -132,14 +135,15 @@ resource "aws_launch_template" "app" {
     docker pull ${var.container_image}
 
     docker rm -f app || true
-
     docker run -d \
       --name app \
       --restart unless-stopped \
       -p ${var.app_port}:${var.app_port} \
       -e AWS_REGION=${var.aws_region} \
       -e AUTO_SCALING_GROUP_NAME=aws-ec2-autoscaling-devops-asg \
+      -e TARGET_GROUP_ARN=${var.target_group_arns[0]} \
       ${var.container_image}
+
   EOF
   )
 
@@ -216,5 +220,13 @@ resource "aws_autoscaling_group" "app" {
     aws_iam_role_policy_attachment.ecr_read,
     aws_iam_role_policy.autoscaling_read
   ]
-
+  enabled_metrics = [
+    "GroupMinSize",
+    "GroupMaxSize",
+    "GroupDesiredCapacity",
+    "GroupInServiceInstances",
+    "GroupPendingInstances",
+    "GroupTerminatingInstances",
+    "GroupTotalInstances"
+  ]
 }

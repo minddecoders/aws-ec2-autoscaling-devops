@@ -209,6 +209,9 @@ module "monitoring" {
   count  = var.enable_compute ? 1 : 0
   source = "../../modules/monitoring"
 
+  aws_region = var.aws_region
+  image_tag  = var.image_tag
+
   project_name = var.project_name
 
   autoscaling_group_name = module.compute[0].autoscaling_group_name

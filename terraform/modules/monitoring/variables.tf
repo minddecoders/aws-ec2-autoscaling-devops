@@ -30,3 +30,14 @@ variable "cpu_alarm_threshold" {
   type        = number
   default     = 70
 }
+variable "aws_region" {
+  description = "AWS region for the CloudWatch dashboard"
+  type        = string
+  default     = "eu-west-1"
+}
+
+variable "image_tag" {
+  description = "Deployed application image Git commit SHA"
+  type        = string
+  default     = ""
+}

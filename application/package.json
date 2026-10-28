@@ -10,6 +10,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@aws-sdk/client-auto-scaling": "^3.1157.0"
+    "@aws-sdk/client-auto-scaling": "^3.1157.0",
+    "@aws-sdk/client-cloudwatch": "^3.1158.0",
+    "@aws-sdk/client-elastic-load-balancing-v2": "^3.1158.0"
   }
 }

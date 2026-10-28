@@ -123,6 +123,58 @@
         </div>
       </section>
 
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <h2>AWS CloudWatch metrics</h2>
+            <p class="subtitle">EC2, Auto Scaling and load balancer monitoring</p>
+          </div>
+          <span id="cw-updated" class="updated">Waiting for metrics</span>
+        </div>
+
+        <div class="cards">
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">Average EC2 CPU</span><span class="metric-icon">%</span></div>
+            <p id="cw-cpu" class="metric-value">—</p>
+            <p id="cw-cpu-detail" class="metric-detail">Waiting for CloudWatch</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">Healthy targets</span><span class="metric-icon">✓</span></div>
+            <p id="cw-healthy" class="metric-value">—</p>
+            <p class="metric-detail">Load balancer targets</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">Unhealthy targets</span><span class="metric-icon">!</span></div>
+            <p id="cw-unhealthy" class="metric-value">—</p>
+            <p class="metric-detail">Targets failing health checks</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">Requests (last hour)</span><span class="metric-icon">↗</span></div>
+            <p id="cw-requests" class="metric-value">—</p>
+            <p class="metric-detail">Application Load Balancer</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">Load balancer 5xx</span><span class="metric-icon">!</span></div>
+            <p id="cw-5xx" class="metric-value">—</p>
+            <p class="metric-detail">Errors reported by the load balancer</p>
+          </article>
+          <article class="metric-card">
+            <div class="metric-top"><span class="metric-label">In-service instances</span><span class="metric-icon">▦</span></div>
+            <p id="cw-inservice" class="metric-value">—</p>
+            <p id="cw-capacity-detail" class="metric-detail">Auto Scaling capacity</p>
+          </article>
+        </div>
+
+        <article class="details-card cw-alarms">
+          <div>
+            <h2>CloudWatch alarms</h2>
+            <p class="subtitle">Alarm states returned by AWS</p>
+          </div>
+          <p id="cw-error" class="error-message" role="status"></p>
+          <div id="cw-alarms-list" class="cw-alarms-list">Loading alarms...</div>
+        </article>
+      </section>
+
       <section class="details-card">
         <div>
           <h2>Runtime details</h2>

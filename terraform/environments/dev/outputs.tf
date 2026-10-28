@@ -70,3 +70,12 @@ output "cloudwatch_http_5xx_alarm_name" {
   description = "CloudWatch alarm for ALB HTTP 5xx errors"
   value       = var.enable_compute ? module.monitoring[0].http_5xx_alarm_name : null
 }
+output "cloudwatch_dashboard_name" {
+  description = "CloudWatch dashboard name"
+  value       = var.enable_compute ? module.monitoring[0].dashboard_name : null
+}
+
+output "cloudwatch_dashboard_url" {
+  description = "CloudWatch dashboard URL"
+  value       = var.enable_compute ? "https://${var.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${module.monitoring[0].dashboard_name}" : null
+}
