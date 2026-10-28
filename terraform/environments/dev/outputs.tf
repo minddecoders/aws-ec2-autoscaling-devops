@@ -55,3 +55,18 @@ output "ubuntu_ami_id" {
   description = "Canonical Ubuntu 22.04 AMI selected for the compute instances"
   value       = var.enable_compute ? module.compute[0].ami_id : null
 }
+
+output "cloudwatch_high_cpu_alarm_name" {
+  description = "CloudWatch alarm for high EC2 CPU utilization"
+  value       = var.enable_compute ? module.monitoring[0].high_cpu_alarm_name : null
+}
+
+output "cloudwatch_unhealthy_targets_alarm_name" {
+  description = "CloudWatch alarm for unhealthy ALB targets"
+  value       = var.enable_compute ? module.monitoring[0].unhealthy_targets_alarm_name : null
+}
+
+output "cloudwatch_http_5xx_alarm_name" {
+  description = "CloudWatch alarm for ALB HTTP 5xx errors"
+  value       = var.enable_compute ? module.monitoring[0].http_5xx_alarm_name : null
+}

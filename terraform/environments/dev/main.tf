@@ -200,3 +200,28 @@ module "compute" {
 
   common_tags = local.common_tags
 }
+
+# -----------------------------
+# CloudWatch Monitoring
+# -----------------------------
+
+module "monitoring" {
+  count  = var.enable_compute ? 1 : 0
+  source = "../../modules/monitoring"
+
+  project_name = var.project_name
+
+  autoscaling_group_name = module.compute[0].autoscaling_group_name
+
+  load_balancer_arn_suffix = split(
+    "loadbalancer/",
+    module.load_balancer.alb_arn
+  )[1]
+
+  target_group_arn_suffix = split(
+    "targetgroup/",
+    module.load_balancer.target_group_arn
+  )[1]
+
+  common_tags = local.common_tags
+}

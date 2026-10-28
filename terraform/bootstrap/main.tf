@@ -287,11 +287,13 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
       {
         Sid    = "EcrRepositoryManagement"
         Effect = "Allow"
-        Action = [
+        "Action" : [
           "ecr:DescribeRepositories",
           "ecr:CreateRepository",
           "ecr:ListTagsForResource",
           "ecr:BatchGetImage",
+          "ecr:ListImages",
+          "ecr:BatchDeleteImage",
           "ecr:DeleteRepository",
           "ecr:PutLifecyclePolicy",
           "ecr:GetLifecyclePolicy",
