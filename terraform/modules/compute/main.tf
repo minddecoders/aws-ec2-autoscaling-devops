@@ -77,11 +77,11 @@ resource "aws_iam_role_policy" "autoscaling_read" {
       Effect = "Allow"
 
       Action = [
-  "autoscaling:DescribeAutoScalingGroups",
-  "cloudwatch:GetMetricData",
-  "cloudwatch:DescribeAlarms",
-  "elasticloadbalancing:DescribeTargetGroups"
-]
+        "autoscaling:DescribeAutoScalingGroups",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:DescribeAlarms",
+        "elasticloadbalancing:DescribeTargetGroups"
+      ]
 
       Resource = "*"
     }]
