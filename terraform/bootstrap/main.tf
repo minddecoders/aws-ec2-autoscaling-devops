@@ -260,6 +260,22 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
         Resource = "*"
       },
       {
+        Sid    = "CloudWatchMonitoring"
+        Effect = "Allow"
+
+        Action = [
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:TagResource",
+          "cloudwatch:UntagResource",
+          "cloudwatch:PutDashboard",
+          "cloudwatch:DeleteDashboards"
+        ]
+
+        Resource = "*"
+      },
+      {
         Sid      = "CreateRequiredServiceLinkedRoles"
         Effect   = "Allow"
         Action   = ["iam:CreateServiceLinkedRole"]
