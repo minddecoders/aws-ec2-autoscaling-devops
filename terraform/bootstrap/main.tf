@@ -268,6 +268,7 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
           "cloudwatch:DescribeAlarms",
           "cloudwatch:DeleteAlarms",
           "cloudwatch:TagResource",
+          "cloudwatch:ListTagsForResource",
           "cloudwatch:UntagResource",
           "cloudwatch:PutDashboard",
           "cloudwatch:DeleteDashboards"
