@@ -270,6 +270,8 @@ resource "aws_iam_role_policy" "github_terraform_infrastructure" {
           "cloudwatch:TagResource",
           "cloudwatch:ListTagsForResource",
           "cloudwatch:UntagResource",
+          "cloudwatch:ListDashboards",
+          "cloudwatch:GetDashboard",
           "cloudwatch:PutDashboard",
           "cloudwatch:DeleteDashboards"
         ]
